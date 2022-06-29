@@ -330,7 +330,6 @@ class GuardedCode:
         f_locals: Optional[Dict] = None,
         f_globals: Optional[Dict] = None,
     ):
-        self.code = code
         self.valid = True
         self._weakrefs = []
         self._seen_ids = set()

@@ -45,11 +45,17 @@ class RecompileUxTests(torchdynamo.testing.TestCase):
             attached = True
             return f
 
+        import refcycle
         x = torch.randn(2)
         for i in range(2):
             with torchdynamo.optimize(compiler):
                 model(x, i)
-        print("trace")
+        graph = refcycle.garbage()
+        graph.export_image("graph.svg")
+        """
+        for i, v in enumerate(graph.source_components()):
+            v.export_image(f"g{i}.svg")
+        """
 
         self.assertTrue(triggered)
 
