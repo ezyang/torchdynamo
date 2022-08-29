@@ -769,7 +769,7 @@ def compilation_profiling_experiment(
     # Get the context
     cnt = CompileCounterWithBackend(backend)
     if backend == "pytorch":
-        ctx = NullContext()
+        ctx = torchdynamo.optimize(cnt, disable=True)
     else:
         ctx = torchdynamo.optimize(cnt)
 
@@ -1263,6 +1263,7 @@ def parse_args():
         "--fast", "-f", action="store_true", help="skip slow benchmarks"
     )
     parser.add_argument("--only", help="Run just one model")
+    parser.add_argument("--after", help="Start executing after this model")
     parser.add_argument(
         "--training",
         action="store_true",
@@ -1573,7 +1574,7 @@ def main(runner, original_dir=None):
 
     experiment = null_experiment
     global current_name, current_device, current_batch_size, output_filename, optimize_ctx
-    optimize_ctx = NullContext()
+    optimize_ctx = torchdynamo.optimize("eager", disable=True)
 
     if args.overhead:
         optimize_ctx = torchdynamo.optimize(dummy_fx_compile, nopython=args.nopython)
@@ -1740,8 +1741,10 @@ def main(runner, original_dir=None):
 
     experiment = functools.partial(experiment, args, model_iter_fn)
 
-    if args.only:
-        model_name = args.only
+    after = args.after
+    for model_name in sorted(runner.iter_model_names(args)):
+        if after is not None and model_name <= after:
+            continue
         for device in args.devices:
             batch_size = args.batch_size
             if args.batch_size_file:
@@ -1758,7 +1761,7 @@ def main(runner, original_dir=None):
                     args.dynamic_shapes,
                 )
             except NotImplementedError:
-                logging.warn(f"{args.only} failed to load")
+                logging.warn(f"{model_name} failed to load", exc_info=True)
                 continue  # bad benchmark implementation
 
             current_name = name
@@ -1796,7 +1799,7 @@ def main(runner, original_dir=None):
                     *Stats.aot_summary(),
                 ],
             )
-    else:
+    if False:
         if output_filename and os.path.exists(output_filename):
             os.unlink(output_filename)
         if original_dir:
